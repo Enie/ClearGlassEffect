@@ -117,35 +117,41 @@ float2 rotateAroundPoint(float2 point2, float2 point1, float theta) {
     // Apply frosted glass effect across ENTIRE glass area using Gaussian blur
     if (frost > 0.0) {
         half4 blurredColor = half4(0.0);
-        float frostRadius = frost * 40.0;
+        float frostRadius = frost * 20.0;
         float weightSum = 0.0;
 
+        // Sigma controls the spread of the Gaussian curve
+        float frostSigma = frostRadius / 2.0;
+        float frostTwoSigmaSquared = 2.0 * frostSigma * frostSigma;
+        float frostRadiusSquared = frostRadius * frostRadius;
+
         // Gaussian blur with proper weighting
-        for(int y = -frostRadius/2; y <= frostRadius/2; y++) {
-            for(int x = -frostRadius/2; x <= frostRadius/2; x++) {
+        for(int y = -frostRadius; y <= frostRadius; y++) {
+            for(int x = -frostRadius; x <= frostRadius; x++) {
                 float2 offset = float2(x,y);
-                float dist = length(offset);
+                float distSquared = dot(offset, offset);
 
-                if(dist <= frostRadius) {
-                    // Gaussian weight: e^(-(x^2 + y^2) / (2*sigma^2))
-                    // Using cosine approximation for performance
-                    float gauss = cos(float(x)/frostRadius) * cos(float(y)/frostRadius);
-                    gauss = max(0.0, gauss); // Clamp to positive
-
-                    half4 sample = layer.sample(readPosition + offset);
-
-                    // Skip chroma key pixels in blur to avoid green bleeding
-                    if (useChromaKey) {
-                        float sampleColorDist = distance(sample.rgb, chromaKey.rgb);
-                        if (sampleColorDist < 0.1 && sample.a > 0.5) {
-                            // This is a chroma pixel, skip it
-                            continue;
-                        }
-                    }
-
-                    blurredColor += sample * gauss;
-                    weightSum += gauss;
+                // Only sample within circular area
+                if(distSquared > frostRadiusSquared) {
+                    continue;
                 }
+
+                // Proper Gaussian weight: exp(-(x^2 + y^2) / (2*sigma^2))
+                float weight = exp(-distSquared / frostTwoSigmaSquared);
+
+                half4 sample = layer.sample(readPosition + offset);
+
+                // Skip chroma key pixels in blur to avoid green bleeding
+                if (useChromaKey) {
+                    float sampleColorDist = distance(sample.rgb, chromaKey.rgb);
+                    if (sampleColorDist < 0.1 && sample.a > 0.5) {
+                        // This is a chroma pixel, skip it
+                        continue;
+                    }
+                }
+
+                blurredColor += sample * weight;
+                weightSum += weight;
             }
         }
 
@@ -174,48 +180,69 @@ float2 rotateAroundPoint(float2 point2, float2 point1, float theta) {
     return refractedColor;
 }
 
-[[ stitchable ]] half4 blobMerge(float2 position, SwiftUI::Layer layer, float blurRadius, float threshold) {
-    half4 currentPixel = layer.sample(position);
-
-    // If blur radius is 0, just return the original pixel
-    if (blurRadius <= 0.0) {
-        return currentPixel;
+[[ stitchable ]] half4 blobMergeHorizontal(float2 position, SwiftUI::Layer layer, float radius) {
+    // If radius is 0, just return the original pixel
+    if (radius <= 0.0) {
+        return layer.sample(position);
     }
 
-    // Apply Gaussian blur
-    half4 blurredColor = half4(0.0);
-    float weightSum = 0.0;
+    // Horizontal pass of separable box blur in linear color space
+    half4 sum = half4(0.0);
+    int intRadius = int(radius);
 
-    for(int y = -blurRadius; y <= blurRadius; y++) {
-        for(int x = -blurRadius; x <= blurRadius; x++) {
-            float2 offset = float2(x, y);
-            float dist = length(offset);
+    for(int x = -intRadius; x <= intRadius; x++) {
+        float2 offset = float2(x, 0);
+        half4 sample = layer.sample(position + offset);
 
-            if(dist <= blurRadius) {
-                // Gaussian weight using cosine approximation
-                float gauss = cos(float(x)/blurRadius) * cos(float(y)/blurRadius);
-                gauss = max(0.0, gauss);
+        // Convert from sRGB to linear before blurring (gamma = 2.2)
+        sample.rgb = pow(sample.rgb, 2.2);
 
-                half4 sample = layer.sample(position + offset);
-                blurredColor += sample * gauss;
-                weightSum += gauss;
-            }
-        }
+        sum += sample;
     }
 
-    // Normalize
-    if (weightSum > 0.0) {
-        blurredColor /= weightSum;
+    // Average (box filter has equal weights)
+    half4 result = sum / float(intRadius * 2 + 1);
+
+    // Convert back from linear to sRGB
+    result.rgb = pow(result.rgb, 1.0/2.2);
+
+    return result;
+}
+
+[[ stitchable ]] half4 blobMergeVertical(float2 position, SwiftUI::Layer layer, float radius, float threshold) {
+    // If radius is 0, just return the original pixel
+    if (radius <= 0.0) {
+        return layer.sample(position);
     }
+
+    // Vertical pass of separable box blur in linear color space
+    half4 sum = half4(0.0);
+    int intRadius = int(radius);
+
+    for(int y = -intRadius; y <= intRadius; y++) {
+        float2 offset = float2(0, y);
+        half4 sample = layer.sample(position + offset);
+
+        // Convert from sRGB to linear before blurring (gamma = 2.2)
+        sample.rgb = pow(sample.rgb, 2.2);
+
+        sum += sample;
+    }
+
+    // Average (box filter has equal weights)
+    half4 result = sum / float(intRadius * 2 + 1);
+
+    // Convert back from linear to sRGB
+    result.rgb = pow(result.rgb, 1.0/2.2);
 
     // Apply threshold to sharpen edges
     // If alpha is above threshold, make it fully opaque, otherwise transparent
-    float alpha = blurredColor.a;
+    float alpha = result.a;
     if (alpha > threshold) {
-        blurredColor.a = 1.0;
+        result.a = 1.0;
     } else {
-        blurredColor.a = 0.0;
+        result.a = 0.0;
     }
 
-    return blurredColor;
+    return result;
 }
