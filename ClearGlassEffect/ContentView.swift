@@ -21,7 +21,8 @@ struct ContentView: View {
     @State var warp: CGFloat = 0.25
     @State var frost: CGFloat = 0
     @State var highlight: CGFloat = 0.5
-    @State var selectedExample: ExampleType = .glassUI
+    @State var blobMerge: CGFloat = 4
+    @State var selectedExample: ExampleType = .imageWithCornerRadius
 
     var body: some View {
         NavigationView {
@@ -59,6 +60,13 @@ struct ContentView: View {
                     Slider(value: $highlight, in: 0...1) {
                         Text("Highlight")
                     }
+
+                    if selectedExample == .glassUI {
+                        Slider(value: $blobMerge, in: 0...15) {
+                            Text("Blob Merge")
+                        }
+                    }
+
                     Button("Randomize") {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.4)) {
                             radius = CGFloat.random(in: 0...100)
@@ -103,7 +111,8 @@ struct ContentView: View {
                         strength: strength,
                         warp: warp,
                         frost: frost,
-                        highlight: highlight
+                        highlight: highlight,
+                        blobMerge: blobMerge
                     )
                 }
             }

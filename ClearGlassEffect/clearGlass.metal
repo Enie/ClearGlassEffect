@@ -132,16 +132,28 @@ float2 rotateAroundPoint(float2 point2, float2 point1, float theta) {
                     float gauss = cos(float(x)/frostRadius) * cos(float(y)/frostRadius);
                     gauss = max(0.0, gauss); // Clamp to positive
 
-                    blurredColor += layer.sample(readPosition + offset) * gauss;
+                    half4 sample = layer.sample(readPosition + offset);
+
+                    // Skip chroma key pixels in blur to avoid green bleeding
+                    if (useChromaKey) {
+                        float sampleColorDist = distance(sample.rgb, chromaKey.rgb);
+                        if (sampleColorDist < 0.1 && sample.a > 0.5) {
+                            // This is a chroma pixel, skip it
+                            continue;
+                        }
+                    }
+
+                    blurredColor += sample * gauss;
                     weightSum += gauss;
                 }
             }
         }
 
         // Normalize by sum of weights for proper Gaussian
-        blurredColor /= weightSum;
-
-        refractedColor = blurredColor;
+        if (weightSum > 0.0) {
+            blurredColor /= weightSum;
+            refractedColor = blurredColor;
+        }
     }
 
     // Add specular highlight on the edge only
@@ -160,4 +172,50 @@ float2 rotateAroundPoint(float2 point2, float2 point1, float theta) {
     }
 
     return refractedColor;
+}
+
+[[ stitchable ]] half4 blobMerge(float2 position, SwiftUI::Layer layer, float blurRadius, float threshold) {
+    half4 currentPixel = layer.sample(position);
+
+    // If blur radius is 0, just return the original pixel
+    if (blurRadius <= 0.0) {
+        return currentPixel;
+    }
+
+    // Apply Gaussian blur
+    half4 blurredColor = half4(0.0);
+    float weightSum = 0.0;
+
+    for(int y = -blurRadius; y <= blurRadius; y++) {
+        for(int x = -blurRadius; x <= blurRadius; x++) {
+            float2 offset = float2(x, y);
+            float dist = length(offset);
+
+            if(dist <= blurRadius) {
+                // Gaussian weight using cosine approximation
+                float gauss = cos(float(x)/blurRadius) * cos(float(y)/blurRadius);
+                gauss = max(0.0, gauss);
+
+                half4 sample = layer.sample(position + offset);
+                blurredColor += sample * gauss;
+                weightSum += gauss;
+            }
+        }
+    }
+
+    // Normalize
+    if (weightSum > 0.0) {
+        blurredColor /= weightSum;
+    }
+
+    // Apply threshold to sharpen edges
+    // If alpha is above threshold, make it fully opaque, otherwise transparent
+    float alpha = blurredColor.a;
+    if (alpha > threshold) {
+        blurredColor.a = 1.0;
+    } else {
+        blurredColor.a = 0.0;
+    }
+
+    return blurredColor;
 }

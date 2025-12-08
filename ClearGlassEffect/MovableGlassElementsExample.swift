@@ -32,6 +32,7 @@ struct MovableGlassElementsExample: View {
     let warp: CGFloat
     let frost: CGFloat
     let highlight: CGFloat
+    var blobMerge: CGFloat = 0
 
     @State private var todoItems: [TodoItem] = [
         TodoItem(text: "Take a bath"),
@@ -49,7 +50,8 @@ struct MovableGlassElementsExample: View {
                 warp: warp,
                 frost: frost,
                 highlight: highlight,
-                chromaKeyColor: .green
+                chromaKeyColor: .green,
+                blobMergeRadius: blobMerge
             ) {
             VStack(spacing: 20) {
                 Text("Todo List")
@@ -80,7 +82,7 @@ struct MovableGlassElementsExample: View {
                         .padding()
                         .compositingGroup()
                         .background(Color.green)
-                        .cornerRadius(radius)
+                        .cornerRadius(radius/3)
                         .transition(.asymmetric(
                             insertion: item.isNew
                                 ? .offset(y: -45)
@@ -117,76 +119,12 @@ struct MovableGlassElementsExample: View {
                 }
                 .compositingGroup()
                 .background(Color.green)
-                .cornerRadius(radius)
+                .cornerRadius(radius/3)
                 .padding(.top, 20)
 
                 Spacer()
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
-            }
-        }
-    }
-}
-
-struct GlassContainer<Content: View>: View {
-    let backgroundImage: Image
-    let radius: CGFloat
-    let glassRadius: CGFloat
-    let strength: CGFloat
-    let warp: CGFloat
-    let frost: CGFloat
-    let highlight: CGFloat
-    let chromaKeyColor: Color?
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                // Full-size background image - stays visible
-                backgroundImage
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: geometry.size.width, height: geometry.size.height)
-                    .clipped()
-
-                // Render background again for the shader to sample from
-                backgroundImage
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: geometry.size.width, height: geometry.size.height)
-                    .mask {
-                        // Content on top with green chroma key
-                        content
-                            .compositingGroup()
-                    }
-//                    .compositingGroup() // Composite so shader sees both background and chroma
-                    .layerEffect(
-                        ShaderLibrary.clearGlass(
-                            .float(radius),
-                            .float(glassRadius),
-                            .float(-strength),
-                            .float(warp),
-                            .float(frost),
-                            .float(highlight),
-                            .color(.clear)
-                        ),
-                        maxSampleOffset: CGSize(width: abs(glassRadius * strength), height: abs(glassRadius * strength))
-                    )
-                    .shadow(radius: glassRadius, x: glassRadius/2, y: glassRadius/2)
-                    .shadow(radius: glassRadius/2, x: glassRadius/4, y: glassRadius/4)
-                content
-                    .layerEffect(
-                        ShaderLibrary.clearGlass(
-                            .float(radius),
-                            .float(glassRadius),
-                            .float(-strength),
-                            .float(warp),
-                            .float(frost),
-                            .float(highlight),
-                            .color(chromaKeyColor ?? .clear)
-                        ),
-                        maxSampleOffset: CGSize(width: abs(glassRadius * strength), height: abs(glassRadius * strength))
-                    )
             }
         }
     }
