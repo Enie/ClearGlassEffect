@@ -9,19 +9,6 @@
 #include <SwiftUI/SwiftUI_Metal.h>
 using namespace metal;
 
-float2 rotateAroundPoint(float2 point2, float2 point1, float theta) {
-    float2 translated = point2 - point1;
-
-    float cosTheta = cos(theta);
-    float sinTheta = sin(theta);
-
-    float2 rotated;
-    rotated.x = translated.x * cosTheta - translated.y * sinTheta;
-    rotated.y = translated.x * sinTheta + translated.y * cosTheta;
-
-    return rotated + point1;
-}
-
 [[ stitchable ]] half4 clearGlass(float2 position, SwiftUI::Layer layer, float radius, float strength, float warp, float frost, float highlight, half4 chromaKey) {
 
     half4 currentPixel = layer.sample(position);
