@@ -88,7 +88,6 @@ Image("background")
     .cornerRadius(radius)
     .layerEffect(
         ShaderLibrary.clearGlass(
-            .float(20),      // cornerRadius
             .float(5),       // glassRadius
             .float(-2.0),    // strength (negative for outward refraction)
             .float(0.25),    // warp

@@ -42,7 +42,6 @@ struct TextWithImageExample: View {
                             .compositingGroup()
                             .layerEffect(
                                 ShaderLibrary.clearGlass(
-                                    .float(radius),
                                     .float(glassRadius),
                                     .float(-strength),
                                     .float(warp),

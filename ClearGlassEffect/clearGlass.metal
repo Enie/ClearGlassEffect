@@ -22,7 +22,7 @@ float2 rotateAroundPoint(float2 point2, float2 point1, float theta) {
     return rotated + point1;
 }
 
-[[ stitchable ]] half4 clearGlass(float2 position, SwiftUI::Layer layer, float cornerRadius, float radius, float strength, float warp, float frost, float highlight, half4 chromaKey) {
+[[ stitchable ]] half4 clearGlass(float2 position, SwiftUI::Layer layer, float radius, float strength, float warp, float frost, float highlight, half4 chromaKey) {
 
     half4 currentPixel = layer.sample(position);
 

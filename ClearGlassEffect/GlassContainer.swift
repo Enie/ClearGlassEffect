@@ -41,7 +41,6 @@ struct GlassContainer<Content: View>: View {
                     }
                     .layerEffect(
                         ShaderLibrary.clearGlass(
-                            .float(radius),
                             .float(glassRadius),
                             .float(-strength),
                             .float(warp),
@@ -57,7 +56,6 @@ struct GlassContainer<Content: View>: View {
                 content
                     .layerEffect(
                         ShaderLibrary.clearGlass(
-                            .float(radius),
                             .float(glassRadius),
                             .float(-strength),
                             .float(warp),

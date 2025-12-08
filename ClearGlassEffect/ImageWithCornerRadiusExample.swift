@@ -23,7 +23,6 @@ struct ImageWithCornerRadiusExample: View {
                 .cornerRadius(radius)
                 .layerEffect(
                     ShaderLibrary.clearGlass(
-                        .float(radius),
                         .float(glassRadius),
                         .float(-strength),
                         .float(warp),
