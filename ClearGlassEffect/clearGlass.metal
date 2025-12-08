@@ -22,21 +22,57 @@ float2 rotateAroundPoint(float2 point2, float2 point1, float theta) {
     return rotated + point1;
 }
 
-[[ stitchable ]] half4 clearGlass(float2 position, SwiftUI::Layer layer, float cornerRadius, float radius, float strength, float warp, float frost, float highlight, float2 size) {
+[[ stitchable ]] half4 clearGlass(float2 position, SwiftUI::Layer layer, float cornerRadius, float radius, float strength, float warp, float frost, float highlight, half4 chromaKey) {
 
-    float edgeDistance = size.x;
+    half4 currentPixel = layer.sample(position);
+
+    // Check if chroma key is enabled (alpha > 0)
+    bool useChromaKey = chromaKey.a > 0.5;
+
+    bool isOnGlass;
+    if (useChromaKey) {
+        // Check if current pixel matches chroma key color (within tolerance)
+        float colorDist = distance(currentPixel.rgb, chromaKey.rgb);
+        isOnGlass = colorDist < 0.1 && currentPixel.a > 0.5;
+    } else {
+        // Use alpha channel
+        isOnGlass = currentPixel.a > 0.5;
+    }
+
+    if (!isOnGlass) {
+        return currentPixel;
+    }
+
+    // Find distance to nearest edge
+    float edgeDistance = 50; // magic number which is larger than maximum radius
     float2 edgePosition = float2(0,0);
 
     for(int x = -radius; x <= radius; x++) {
         for(int y = -radius; y <= radius; y++) {
             float2 offset = float2(x,y);
             float2 testPosition = position + offset;
+            half4 testPixel = layer.sample(testPosition);
 
             float distance = metal::distance(position, testPosition);
-            float isOpaque = layer.sample(testPosition).a > 0.5;
-            float newDistance = isOpaque
+
+            bool isTestPixelGlass;
+            if (useChromaKey) {
+                // For chroma key: edge is where chroma transitions to TRANSPARENT only
+                // Not where it transitions to other colors
+                float testColorDist = metal::distance(testPixel.rgb, chromaKey.rgb);
+                bool isChromaColor = testColorDist < 0.1 && testPixel.a > 0.5;
+                bool isTransparent = testPixel.a < 0.5;
+
+                // Edge is where we transition from chroma to transparent
+                isTestPixelGlass = isChromaColor || !isTransparent;
+            } else {
+                // Use alpha channel
+                isTestPixelGlass = testPixel.a > 0.5;
+            }
+
+            float newDistance = isTestPixelGlass
                             ? edgeDistance
-                            : min(distance,edgeDistance);
+                            : min(distance, edgeDistance);
             edgePosition = newDistance < edgeDistance
                             ? offset
                             : edgePosition;
@@ -44,14 +80,11 @@ float2 rotateAroundPoint(float2 point2, float2 point1, float theta) {
         }
     }
 
-    bool isOnGlass = layer.sample(position).a > 0.5;
-
-    if (!isOnGlass) {
-        return layer.sample(position);
-    }
-
-    float2 centerToPixel = position - size/2.0;
-    float2 surfaceNormal = normalize(centerToPixel);
+    // Calculate surface normal based on edge direction
+    // For individual letters, this creates a normal pointing toward the edge
+    float2 surfaceNormal = edgeDistance < radius && length(edgePosition) > 0.0
+                            ? normalize(edgePosition)
+                            : normalize(position);
     float2 readPosition = position;
 
     // Apply refraction only near edges
@@ -70,38 +103,45 @@ float2 rotateAroundPoint(float2 point2, float2 point1, float theta) {
     // Sample the refracted color
     half4 refractedColor = layer.sample(readPosition);
 
-    // Apply frosted glass effect across ENTIRE glass area
+    // If using chroma key, the sampled color will be the chroma key color
+    // We need to make it transparent so the background shows through
+    if (useChromaKey) {
+        float sampledColorDist = distance(refractedColor.rgb, chromaKey.rgb);
+        if (sampledColorDist < 0.1 && refractedColor.a > 0.5) {
+            // This pixel is the chroma key color, make it transparent
+            // so the background image shows through with glass effect
+            refractedColor = half4(0.0, 0.0, 0.0, 0.0);
+        }
+    }
+
+    // Apply frosted glass effect across ENTIRE glass area using Gaussian blur
     if (frost > 0.0) {
-        // Create grainy noise pattern for frosted texture
-        float noise = fract(sin(dot(position, float2(12.9898, 78.233))) * 43758.5453);
-        float noise2 = fract(sin(dot(position, float2(93.9898, 67.345))) * 28653.1234);
-
-        // Use noise to create random sample offsets for grainy blur
         half4 blurredColor = half4(0.0);
-        float frostRadius = frost * 20.0;
-        int samples = 0;
+        float frostRadius = frost * 40.0;
+        float weightSum = 0.0;
 
-        // Fewer samples but with random jitter for grain
-        for(float fx = -frostRadius; fx <= frostRadius; fx += 2.0) {
-            for(float fy = -frostRadius; fy <= frostRadius; fy += 2.0) {
-                // Add random jitter to sample positions for grain
-                float jitterX = fract(sin(fx * noise + fy * noise2) * 43758.5) * 2.0 - 1.0;
-                float jitterY = fract(sin(fy * noise2 + fx * noise) * 28653.1) * 2.0 - 1.0;
+        // Gaussian blur with proper weighting
+        for(int y = -frostRadius/2; y <= frostRadius/2; y++) {
+            for(int x = -frostRadius/2; x <= frostRadius/2; x++) {
+                float2 offset = float2(x,y);
+                float dist = length(offset);
 
-                float2 frostOffset = float2(fx + jitterX, fy + jitterY);
-                if (length(frostOffset) <= frostRadius) {
-                    blurredColor += layer.sample(readPosition + frostOffset);
-                    samples++;
+                if(dist <= frostRadius) {
+                    // Gaussian weight: e^(-(x^2 + y^2) / (2*sigma^2))
+                    // Using cosine approximation for performance
+                    float gauss = cos(float(x)/frostRadius) * cos(float(y)/frostRadius);
+                    gauss = max(0.0, gauss); // Clamp to positive
+
+                    blurredColor += layer.sample(readPosition + offset) * gauss;
+                    weightSum += gauss;
                 }
             }
         }
 
-        blurredColor /= float(samples);
+        // Normalize by sum of weights for proper Gaussian
+        blurredColor /= weightSum;
 
-        // Add subtle grain to the final result
-        float grain = (noise - 0.5) * 0.05 * frost;
-        refractedColor = mix(refractedColor, blurredColor, frost);
-        refractedColor.rgb += half3(grain);
+        refractedColor = blurredColor;
     }
 
     // Add specular highlight on the edge only

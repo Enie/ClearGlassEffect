@@ -13,5 +13,6 @@ struct ClearGlassEffectApp: App {
         WindowGroup {
             ContentView()
         }
+        .windowStyle(.hiddenTitleBar)
     }
 }
