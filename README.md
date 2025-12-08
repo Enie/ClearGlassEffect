@@ -57,6 +57,8 @@ The project includes three interactive examples:
 
 ## Usage
 
+### Using GlassContainer
+
 ```swift
 GlassContainer(
     backgroundImage: Image("background"),
@@ -73,6 +75,30 @@ GlassContainer(
     Text("Glass Effect")
         .background(Color.green)
 }
+```
+
+### Using the Shader Directly
+
+For simple glass effects, apply the shader directly:
+
+```swift
+Image("background")
+    .resizable()
+    .aspectRatio(contentMode: .fill)
+    .cornerRadius(radius)
+    .layerEffect(
+        ShaderLibrary.clearGlass(
+            .float(20),      // cornerRadius
+            .float(5),       // glassRadius
+            .float(-2.0),    // strength (negative for outward refraction)
+            .float(0.25),    // warp
+            .float(0.3),     // frost
+            .float(0.5),     // highlight
+            .color(.clear)   // chromaKey (use .clear for alpha-based detection)
+        ),
+        maxSampleOffset: CGSize(width: 10, height: 10)
+    )
+    .shadow(radius: 5)
 ```
 
 ## Requirements
