@@ -53,11 +53,13 @@ struct ContentView: View {
                     Slider(value: $warp, in: 0...1) {
                         Text("Warp")
                     }
-                    
-                    Slider(value: $frost, in: 0...1) {
-                        Text("Frost")
+
+                    if selectedExample != .cameraStream {
+                        Slider(value: $frost, in: 0...1) {
+                            Text("Frost")
+                        }
                     }
-                    
+
                     Slider(value: $highlight, in: 0...1) {
                         Text("Highlight")
                     }
