@@ -1,13 +1,13 @@
 # Clear Glass Effect
 
-A realistic glass refraction effect for SwiftUI using Metal shaders, implementing proper physics-based light bending along surface normals (Snell's law).
+A realistic glass refraction effect for SwiftUI using Metal shaders, implementing light bending along the alpha edge of the given view.
 
 ![Glass Effect Demo](GlassyGlass.gif)
 
 ## Features
 
-- **Realistic Refraction** - Light bends along surface normals, creating authentic glass distortion
-- **Frosted Glass** - Gaussian blur effect
+- **Realistic Refraction** - Displacement along surface normals creates glass-like distortion
+- **Frosted Glass** - Box blur effect in linear color space
 - **Edge Highlights** - Fresnel-based specular highlights on glass edges
 - **Metaball Merging** - Organic metaball-style merging of nearby UI elements
 - **Chroma Key Support** - Use color-based masking to separate UI backgrounds that use the glass effect form other UI elements.
@@ -50,7 +50,7 @@ The project includes three interactive examples:
 - **Corner Radius** - Roundness of UI elements
 - **Glass Radius** - Edge detection and effect radius
 - **Strength** - Refraction intensity
-- **Warp** - Refractive index multiplier
+- **Warp** - Displacement strength multiplier
 - **Frost** - Frosted glass blur amount
 - **Highlight** - Edge highlight intensity
 - **Blob Merge** - Organic merging radius (Glass UI only)
