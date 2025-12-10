@@ -10,6 +10,7 @@ import SwiftUI
 enum ExampleType: String, CaseIterable {
     case imageWithCornerRadius = "Image with Corner Radius"
     case textWithImage = "Text with Image"
+    case cameraStream = "Camera Stream"
     case glassUI = "Glass UI (Todo List)"
 }
 
@@ -22,7 +23,7 @@ struct ContentView: View {
     @State var frost: CGFloat = 0
     @State var highlight: CGFloat = 0.5
     @State var blobMerge: CGFloat = 4
-    @State var selectedExample: ExampleType = .imageWithCornerRadius
+    @State var selectedExample: ExampleType = .cameraStream
 
     var body: some View {
         NavigationView {
@@ -102,6 +103,14 @@ struct ContentView: View {
                         strength: strength,
                         warp: warp,
                         frost: frost,
+                        highlight: highlight
+                    )
+                case .cameraStream:
+                    CameraStreamExample(
+                        radius: radius,
+                        glassRadius: glassRadius,
+                        strength: strength,
+                        warp: warp,
                         highlight: highlight
                     )
                 case .glassUI:
